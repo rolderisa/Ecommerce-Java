@@ -74,33 +74,34 @@ public class AuthServiceImpl implements AuthService {
         verificationToken.setType(Token.TokenType.EMAIL_VERIFICATION);
         verificationToken.setUser(user);
         verificationToken.setExpiryDate(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRY_HOURS));
+        verificationToken.setCreatedAt(LocalDateTime.now());
         tokenRepository.save(verificationToken);
 
         // Send verification email
         emailService.sendVerificationEmail(user.getEmail(), token);
 
         return new RegisterResponse(
-            "Registration successful. Please check your email to verify your account.",
-            user.getEmail()
+                "Registration successful. Please check your email to verify your account.",
+                user.getEmail()
         );
     }
 
     @Override
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
-            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String token = tokenProvider.generateToken(authentication);
 
         User user = userRepository.findByEmail(request.getEmail())
-            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return new LoginResponse(
-            token,
-            user.getEmail(),
-            user.getRoles().stream().toList()
+                token,
+                user.getEmail(),
+                user.getRoles().stream().toList()
         );
     }
 
@@ -138,6 +139,7 @@ public class AuthServiceImpl implements AuthService {
         resetToken.setType(Token.TokenType.PASSWORD_RESET);
         resetToken.setUser(user);
         resetToken.setExpiryDate(LocalDateTime.now().plusHours(PASSWORD_RESET_EXPIRY_HOURS));
+        resetToken.setCreatedAt(LocalDateTime.now());
         tokenRepository.save(resetToken);
 
         emailService.sendPasswordResetEmail(email, token);
