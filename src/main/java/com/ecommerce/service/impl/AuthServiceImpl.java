@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -40,6 +41,13 @@ public class AuthServiceImpl implements AuthService {
 
     private static final int EMAIL_VERIFICATION_EXPIRY_HOURS = 24;
     private static final int PASSWORD_RESET_EXPIRY_HOURS = 1;
+    private static final int OTP_LENGTH = 6;
+
+    private String generateOTP() {
+        Random random = new Random();
+        int otp = 100000 + random.nextInt(900000); // Generate a 6-digit number
+        return String.valueOf(otp);
+    }
 
     @Override
     @Transactional
@@ -67,52 +75,53 @@ public class AuthServiceImpl implements AuthService {
         user.setAddress(address);
         userRepository.save(user);
 
-        // Create and save verification token
-        String token = UUID.randomUUID().toString();
+        // Create and save verification token (OTP)
+        String otp = generateOTP();
         Token verificationToken = new Token();
-        verificationToken.setToken(token);
+        verificationToken.setToken(otp); // Store OTP here
         verificationToken.setType(Token.TokenType.EMAIL_VERIFICATION);
         verificationToken.setUser(user);
         verificationToken.setExpiryDate(LocalDateTime.now().plusHours(EMAIL_VERIFICATION_EXPIRY_HOURS));
         verificationToken.setCreatedAt(LocalDateTime.now());
         tokenRepository.save(verificationToken);
 
-        // Send verification email
-        emailService.sendVerificationEmail(user.getEmail(), token);
+        // Send verification email with OTP
+        emailService.sendVerificationEmail(user.getEmail(), otp); // Send OTP
 
         return new RegisterResponse(
-                "Registration successful. Please check your email to verify your account.",
-                user.getEmail()
+            "Registration successful. Please check your email for the verification OTP.",
+            user.getEmail(),
+            otp // Include the OTP in the response for testing
         );
     }
 
     @Override
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+            new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
         );
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String token = tokenProvider.generateToken(authentication);
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return new LoginResponse(
-                token,
-                user.getEmail(),
-                user.getRoles().stream().toList()
+            token,
+            user.getEmail(),
+            user.getRoles().stream().toList()
         );
     }
 
     @Override
     @Transactional
-    public void verifyEmail(String token) {
+    public void verifyEmail(String token) { // This token is now the OTP
         Token verificationToken = tokenRepository.findByTokenAndTypeAndUsedFalse(token, Token.TokenType.EMAIL_VERIFICATION)
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid verification token"));
+                .orElseThrow(() -> new ResourceNotFoundException("Invalid verification OTP"));
 
         if (verificationToken.isExpired()) {
-            throw new TokenExpiredException("Verification token has expired");
+            throw new TokenExpiredException("Verification OTP has expired");
         }
 
         User user = verificationToken.getUser();
@@ -132,7 +141,7 @@ public class AuthServiceImpl implements AuthService {
         // Delete any existing reset tokens for this user
         tokenRepository.deleteByUser_IdAndType(user.getId(), Token.TokenType.PASSWORD_RESET);
 
-        // Create and save new reset token
+        // Create and save new reset token (still using UUID for password reset for now)
         String token = UUID.randomUUID().toString();
         Token resetToken = new Token();
         resetToken.setToken(token);

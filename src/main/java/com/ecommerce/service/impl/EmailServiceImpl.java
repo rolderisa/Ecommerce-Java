@@ -19,15 +19,15 @@ public class EmailServiceImpl implements EmailService {
     private String fromEmail;
 
     @Override
-    public void sendVerificationEmail(String to, String token) {
+    public void sendVerificationEmail(String to, String otp) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(fromEmail);
         message.setTo(to);
-        message.setSubject("Verify your email address");
+        message.setSubject("Your E-commerce Email Verification OTP");
         message.setText(String.format(
-            "Please click the following link to verify your email address:\n" +
-            "http://localhost:3000/verify-email?token=%s",
-            token
+            "Your email verification OTP is: %s\n" +
+            "Please use this OTP to verify your email address.",
+            otp
         ));
 
         try {
